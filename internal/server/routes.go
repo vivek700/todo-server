@@ -22,5 +22,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "hello from todo-server")
 	})
+
+	e.GET("/tasks", s.listTaskHandler)
+
 	return e
+}
+
+func (s *Server) listTaskHandler(c echo.Context) error {
+	return c.JSON(http.StatusOK, s.db.QueryTasks())
 }
