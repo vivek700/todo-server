@@ -7,6 +7,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+type Task struct {
+	Description string `json:"description"`
+}
+
 func (s *Server) RegisterRoutes() http.Handler {
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -25,9 +29,35 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	e.GET("/tasks", s.listTaskHandler)
 
+	e.POST("/addtask", s.taskhandler)
+
 	return e
 }
 
 func (s *Server) listTaskHandler(c echo.Context) error {
+	s.db.Close()
+
 	return c.JSON(http.StatusOK, s.db.QueryTasks())
+}
+
+func (s *Server) taskhandler(c echo.Context) error {
+
+	task := new(Task)
+	if err := c.Bind(task); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid payload",
+		})
+	}
+
+	if task.Description == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description is required"})
+
+	}
+	res := s.db.CreateNewTask(task.Description)
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Task created successfully",
+		"task":    res,
+	})
+
 }
