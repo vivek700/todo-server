@@ -1,10 +1,14 @@
 package server
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/vivek700/todo-server/internal/database"
 )
 
 type Task struct {
@@ -34,10 +38,19 @@ func (s *Server) RegisterRoutes() http.Handler {
 	return e
 }
 
-func (s *Server) listTaskHandler(c echo.Context) error {
-	s.db.Close()
+var ctx = context.Background()
 
-	return c.JSON(http.StatusOK, s.db.QueryTasks())
+func (s *Server) listTaskHandler(c echo.Context) error {
+
+	data, err := s.db.ListTasks(ctx)
+
+	if err != nil {
+		log.Fatal("error in listing item")
+	}
+
+	fmt.Println(data)
+
+	return c.JSON(http.StatusOK, data)
 }
 
 func (s *Server) taskhandler(c echo.Context) error {
@@ -53,7 +66,7 @@ func (s *Server) taskhandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description is required"})
 
 	}
-	res := s.db.CreateNewTask(task.Description)
+	res, _ := s.db.CreateTask(ctx, database.CreateTaskParams{Description: task.Description, Status: false})
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Task created successfully",
