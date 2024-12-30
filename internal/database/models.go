@@ -10,7 +10,15 @@ import (
 
 type Task struct {
 	ID          int64
+	UserID      int64
 	Description string
 	Status      bool
 	CreatedAt   sql.NullTime
+	Foreign     interface{}
+}
+
+type User struct {
+	ID         int64
+	AccessCode string
+	CreatedAt  sql.NullTime
 }

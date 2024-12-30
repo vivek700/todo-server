@@ -11,47 +11,66 @@ import (
 
 const createTask = `-- name: CreateTask :one
 INSERT INTO tasks (
-  description, status
+  user_id, description, status
 ) VALUES (
-  ?, ?
+  ?, ?, ?
 )
-RETURNING id, description, status, created_at
+RETURNING id, user_id, description, status, created_at, "foreign"
 `
 
 type CreateTaskParams struct {
+	UserID      int64
 	Description string
 	Status      bool
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
-	row := q.db.QueryRowContext(ctx, createTask, arg.Description, arg.Status)
+	row := q.db.QueryRowContext(ctx, createTask, arg.UserID, arg.Description, arg.Status)
 	var i Task
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Description,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Foreign,
 	)
 	return i, err
 }
 
 const deleteTask = `-- name: DeleteTask :exec
 DELETE FROM tasks
-WHERE id = ?
+WHERE id = ? AND user_id=?
 `
 
-func (q *Queries) DeleteTask(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteTask, id)
+type DeleteTaskParams struct {
+	ID     int64
+	UserID int64
+}
+
+func (q *Queries) DeleteTask(ctx context.Context, arg DeleteTaskParams) error {
+	_, err := q.db.ExecContext(ctx, deleteTask, arg.ID, arg.UserID)
 	return err
 }
 
+const getUser = `-- name: GetUser :one
+SELECT id FROM users WHERE access_code = ?
+`
+
+func (q *Queries) GetUser(ctx context.Context, accessCode string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getUser, accessCode)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listTasks = `-- name: ListTasks :many
-SELECT id, description, status, created_at FROM tasks
+SELECT id, user_id, description, status, created_at, "foreign" FROM tasks WHERE user_id = ?
 ORDER BY id
 `
 
-func (q *Queries) ListTasks(ctx context.Context) ([]Task, error) {
-	rows, err := q.db.QueryContext(ctx, listTasks)
+func (q *Queries) ListTasks(ctx context.Context, userID int64) ([]Task, error) {
+	rows, err := q.db.QueryContext(ctx, listTasks, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +80,11 @@ func (q *Queries) ListTasks(ctx context.Context) ([]Task, error) {
 		var i Task
 		if err := rows.Scan(
 			&i.ID,
+			&i.UserID,
 			&i.Description,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Foreign,
 		); err != nil {
 			return nil, err
 		}
@@ -81,15 +102,16 @@ func (q *Queries) ListTasks(ctx context.Context) ([]Task, error) {
 const updateTask = `-- name: UpdateTask :exec
 UPDATE tasks
 set status = ?
-WHERE id = ?
+WHERE id = ? AND user_id = ?
 `
 
 type UpdateTaskParams struct {
 	Status bool
 	ID     int64
+	UserID int64
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) error {
-	_, err := q.db.ExecContext(ctx, updateTask, arg.Status, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateTask, arg.Status, arg.ID, arg.UserID)
 	return err
 }

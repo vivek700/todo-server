@@ -1,21 +1,23 @@
+-- name: GetUser :one
+SELECT id FROM users WHERE access_code = ?;
 
 -- name: ListTasks :many
-SELECT * FROM tasks
+SELECT * FROM tasks WHERE user_id = ?
 ORDER BY id;
 
 -- name: CreateTask :one
 INSERT INTO tasks (
-  description, status
+  user_id, description, status
 ) VALUES (
-  ?, ?
+  ?, ?, ?
 )
 RETURNING *;
 
 -- name: UpdateTask :exec
 UPDATE tasks
 set status = ?
-WHERE id = ?;
+WHERE id = ? AND user_id = ?;
 
 -- name: DeleteTask :exec
 DELETE FROM tasks
-WHERE id = ?;
+WHERE id = ? AND user_id=?;
