@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/gorilla/sessions"
-	"github.com/labstack/echo-contrib/session"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/vivek700/todo-server/internal/database"
@@ -20,7 +20,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(session.Middleware(sessions.NewCookieStore([]byte("secret"))))
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"https://*", "http://*"},
@@ -30,24 +29,23 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}))
 
 	e.GET("/", func(c echo.Context) error {
-		sess, err := session.Get("session", c)
-		if err != nil {
-			return err
+		userid, err := c.Cookie("access_code")
+		if err != nil || userid.Value == "" {
+			newUUID := uuid.New().String()
+
+			cookie := new(http.Cookie)
+			cookie.Name = "access_code"
+			cookie.Value = newUUID
+			cookie.HttpOnly = true // Secure: not accessible via JavaScript
+			cookie.Secure = false  //set to true if using https
+			cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
+
+			c.SetCookie(cookie)
+
+			return c.String(http.StatusOK, "hello from todo-server")
 		}
-		sess.Options = &sessions.Options{
-			Path:     "/",
-			MaxAge:   30 * 24 * 60 * 60,
-			HttpOnly: true,
-		}
-		sess.Values["access_code"] = "akjkajfdsjfaljd"
-		if err := sess.Save(c.Request(), c.Response()); err != nil {
-			return err
-		}
-		return c.String(http.StatusOK, "hello from todo-server")
-	})
-	e.GET("/ses", func(c echo.Context) error {
-		sess, _ := session.Get("session", c)
-		return c.String(http.StatusOK, fmt.Sprintf("access_code=%v\n", sess.Values["access_code"]))
+		return c.String(http.StatusOK, "Welcome back! Your user ID is: "+userid.Value)
+
 	})
 
 	e.GET("/tasks", s.listTasksHandler)
