@@ -1,17 +1,24 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	_ "embed"
+
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	"github.com/vivek700/todo-server/internal/database"
 )
+
+//go:embed schema.sql
+var ddl string
 
 type Server struct {
 	port int
@@ -23,6 +30,7 @@ var (
 )
 
 func NewServer() *http.Server {
+	ctx := context.Background()
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 
 	fmt.Println("Connecting to libsql database...")
@@ -32,6 +40,10 @@ func NewServer() *http.Server {
 		os.Exit(1)
 	}
 	fmt.Println("Connected")
+
+	if _, err := db.ExecContext(ctx, ddl); err != nil {
+		log.Fatal(err)
+	}
 
 	queries := database.New(db)
 

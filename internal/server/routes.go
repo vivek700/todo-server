@@ -2,12 +2,14 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/vivek700/todo-server/internal/database"
 )
 
 type Task struct {
@@ -48,43 +50,43 @@ func (s *Server) RegisterRoutes() http.Handler {
 		return c.String(http.StatusOK, fmt.Sprintf("access_code=%v\n", sess.Values["access_code"]))
 	})
 
-	// e.GET("/tasks", s.listTaskHandler)
+	e.GET("/tasks", s.listTasksHandler)
 
-	// e.POST("/addtask", s.taskhandler)
+	e.POST("/tasks", s.createTaskHandler)
 
 	return e
 }
 
-// func (s *Server) listTaskHandler(c echo.Context) error {
-// 	data, err := s.db.ListTasks(c.Request().Context())
-// 	if err != nil {
-// 		log.Fatal("error in listing item")
-// 	}
+func (s *Server) listTasksHandler(c echo.Context) error {
+	data, err := s.db.ListTasks(c.Request().Context(), 2)
+	if err != nil {
+		log.Fatal("error in listing item")
+	}
 
-// 	fmt.Println(data)
+	fmt.Println(data)
 
-// 	return c.JSON(http.StatusOK, data)
-// }
+	return c.JSON(http.StatusOK, data)
+}
 
-// func (s *Server) taskhandler(c echo.Context) error {
-// 	task := new(Task)
-// 	if err := c.Bind(task); err != nil {
-// 		return c.JSON(http.StatusBadRequest, map[string]string{
-// 			"error": "Invalid payload",
-// 		})
-// 	}
+func (s *Server) createTaskHandler(c echo.Context) error {
+	task := new(Task)
+	if err := c.Bind(task); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid payload",
+		})
+	}
 
-// 	if task.Description == "" {
-// 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description is required"})
-// 	}
+	if task.Description == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description is required"})
+	}
 
-// 	res, _ := s.db.CreateTask(
-// 		c.Request().Context(),
-// 		database.CreateTaskParams{Description: task.Description, Status: false},
-// 	)
+	res, _ := s.db.CreateTask(
+		c.Request().Context(),
+		database.CreateTaskParams{Description: task.Description, Status: false},
+	)
 
-// 	return c.JSON(http.StatusOK, map[string]interface{}{
-// 		"message": "Task created successfully",
-// 		"task":    res,
-// 	})
-// }
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Task created successfully",
+		"task":    res,
+	})
+}
