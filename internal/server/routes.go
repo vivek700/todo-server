@@ -1,8 +1,6 @@
 package server
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -28,23 +26,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:       300,
 	}))
 
+	e.RouteNotFound("/*", func(c echo.Context) error {
+		return c.String(http.StatusNotFound, "Not found")
+	})
+
 	e.GET("/", func(c echo.Context) error {
-		userid, err := c.Cookie("access_code")
-		if err != nil || userid.Value == "" {
-			newUUID := uuid.New().String()
-
-			cookie := new(http.Cookie)
-			cookie.Name = "access_code"
-			cookie.Value = newUUID
-			cookie.HttpOnly = true // Secure: not accessible via JavaScript
-			cookie.Secure = false  //set to true if using https
-			cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
-
-			c.SetCookie(cookie)
-
-			return c.String(http.StatusOK, "hello from todo-server")
-		}
-		return c.String(http.StatusOK, "Welcome back! Your user ID is: "+userid.Value)
+		return c.String(http.StatusOK, "Hello! I am the server.")
 
 	})
 
@@ -56,17 +43,50 @@ func (s *Server) RegisterRoutes() http.Handler {
 }
 
 func (s *Server) listTasksHandler(c echo.Context) error {
-	data, err := s.db.ListTasks(c.Request().Context(), 2)
-	if err != nil {
-		log.Fatal("error in listing item")
+
+	userID, err := c.Cookie("access_code")
+	if err != nil || userID.Value == "" {
+		newUUID := uuid.New().String()
+
+		cookie := new(http.Cookie)
+		cookie.Name = "access_code"
+		cookie.Value = newUUID
+		cookie.HttpOnly = true // Secure: not accessible via JavaScript
+		cookie.Secure = false  //set to true if using https
+		cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
+
+		c.SetCookie(cookie)
+
+		res, err := s.db.CreateUser(c.Request().Context(), newUUID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, err)
+		}
+		return c.JSON(http.StatusOK, res)
 	}
 
-	fmt.Println(data)
+	resUser, _ := s.db.GetUser(c.Request().Context(), userID.Value)
 
-	return c.JSON(http.StatusOK, data)
+	tasks, err := s.db.ListTasks(c.Request().Context(), resUser)
+
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to fetch tasks.")
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Tasks retrieved successfully",
+		"status":  "success",
+		"data":    tasks,
+	})
+
 }
 
 func (s *Server) createTaskHandler(c echo.Context) error {
+
+	userID, err := c.Cookie("access_code")
+	if err != nil || userID.Value == "" {
+		return c.NoContent(http.StatusForbidden)
+	}
+
 	task := new(Task)
 	if err := c.Bind(task); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -78,13 +98,25 @@ func (s *Server) createTaskHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "description is required"})
 	}
 
-	res, _ := s.db.CreateTask(
+	user, _ := s.db.GetUser(c.Request().Context(), userID.Value)
+
+	res, err := s.db.CreateTask(
 		c.Request().Context(),
-		database.CreateTaskParams{Description: task.Description, Status: false},
+		database.CreateTaskParams{UserID: user, Description: task.Description, Status: false},
 	)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"message": "Failed to create task: " + err.Error(),
+			"status":  "error",
+		})
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Task created successfully",
 		"task":    res,
 	})
 }
+
+// func (s *Server) deleteTaskHandler(c echo.Context) error {
+
+// }

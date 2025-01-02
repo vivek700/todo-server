@@ -15,7 +15,7 @@ INSERT INTO tasks (
 ) VALUES (
   ?, ?, ?
 )
-RETURNING id, user_id, description, status, created_at, "foreign"
+RETURNING id, user_id, description, status, created_at
 `
 
 type CreateTaskParams struct {
@@ -33,8 +33,18 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 		&i.Description,
 		&i.Status,
 		&i.CreatedAt,
-		&i.Foreign,
 	)
+	return i, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (access_code) VALUES (?) RETURNING id, access_code, created_at
+`
+
+func (q *Queries) CreateUser(ctx context.Context, accessCode string) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUser, accessCode)
+	var i User
+	err := row.Scan(&i.ID, &i.AccessCode, &i.CreatedAt)
 	return i, err
 }
 
@@ -54,6 +64,9 @@ func (q *Queries) DeleteTask(ctx context.Context, arg DeleteTaskParams) error {
 }
 
 const getUser = `-- name: GetUser :one
+;
+
+
 SELECT id FROM users WHERE access_code = ?
 `
 
@@ -65,7 +78,7 @@ func (q *Queries) GetUser(ctx context.Context, accessCode string) (int64, error)
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, user_id, description, status, created_at, "foreign" FROM tasks WHERE user_id = ?
+SELECT id, user_id, description, status, created_at FROM tasks WHERE user_id = ?
 ORDER BY id
 `
 
@@ -84,7 +97,6 @@ func (q *Queries) ListTasks(ctx context.Context, userID int64) ([]Task, error) {
 			&i.Description,
 			&i.Status,
 			&i.CreatedAt,
-			&i.Foreign,
 		); err != nil {
 			return nil, err
 		}

@@ -14,7 +14,6 @@ type Task struct {
 	Description string
 	Status      bool
 	CreatedAt   sql.NullTime
-	Foreign     interface{}
 }
 
 type User struct {

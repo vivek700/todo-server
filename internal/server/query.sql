@@ -1,3 +1,7 @@
+-- name: CreateUser :one
+INSERT INTO users (access_code) VALUES (?) RETURNING * ;
+
+
 -- name: GetUser :one
 SELECT id FROM users WHERE access_code = ?;
 
