@@ -14,6 +14,10 @@ type Task struct {
 	Description string `json:"description"`
 }
 
+type TaskID struct {
+	ID int `query:"id"`
+}
+
 func (s *Server) RegisterRoutes() http.Handler {
 	e := echo.New()
 	e.Use(middleware.Logger())
@@ -38,6 +42,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e.GET("/tasks", s.listTasksHandler)
 
 	e.POST("/tasks", s.createTaskHandler)
+
+	e.DELETE("/tasks", s.deleteTaskHandler)
 
 	return e
 }
@@ -117,6 +123,32 @@ func (s *Server) createTaskHandler(c echo.Context) error {
 	})
 }
 
-// func (s *Server) deleteTaskHandler(c echo.Context) error {
+func (s *Server) deleteTaskHandler(c echo.Context) error {
+	userID, err := c.Cookie("access_code")
+	if err != nil || userID.Value == "" {
+		return c.NoContent(http.StatusForbidden)
+	}
 
-// }
+	if c.QueryParam("id") == "" {
+		return c.String(http.StatusBadRequest, "Error: Task ID is required")
+	}
+
+	req := new(TaskID)
+	if err := c.Bind(req); err != nil {
+		return c.String(http.StatusBadRequest, "bad request")
+	}
+
+	user, _ := s.db.GetUser(c.Request().Context(), userID.Value)
+
+	err = s.db.DeleteTask(c.Request().Context(), database.DeleteTaskParams{UserID: int64(user), ID: int64(req.ID)})
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"message": "Failed to delete task: " + err.Error(),
+			"status":  "error",
+		})
+	}
+
+	return c.String(http.StatusOK, "Task deleted successfully")
+
+}

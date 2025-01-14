@@ -39,7 +39,6 @@ func NewServer() *http.Server {
 		fmt.Fprintf(os.Stderr, "failed to open db %s: %s", url, err)
 		os.Exit(1)
 	}
-	fmt.Println("Connected")
 
 	if _, err := db.ExecContext(ctx, ddl); err != nil {
 		log.Fatal(err)
