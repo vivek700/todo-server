@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -24,15 +25,20 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e.Use(middleware.Recover())
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"https://*", "http://*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
-		AllowHeaders: []string{"Accept", "Content-Type", "X-CSRF-Token"},
-		MaxAge:       300,
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowCredentials: true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders:     []string{"Accept", "Content-Type", "X-CSRF-Token"},
+		// MaxAge:           300,
+		MaxAge: 0,
 	}))
 
-	e.RouteNotFound("/*", func(c echo.Context) error {
-		return c.String(http.StatusNotFound, "Not found")
-	})
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+		c.String(http.StatusNotFound, "Error: Not found")
+	}
 
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello! I am the server.")
@@ -45,6 +51,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	e.DELETE("/tasks", s.deleteTaskHandler)
 
+	e.PUT("/tasks", s.updateTaskHandler)
 	return e
 }
 
@@ -59,6 +66,8 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.Value = newUUID
 		cookie.HttpOnly = true // Secure: not accessible via JavaScript
 		cookie.Secure = false  //set to true if using https
+		cookie.SameSite = http.SameSiteLaxMode
+		cookie.Path = "/"
 		cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
 
 		c.SetCookie(cookie)
@@ -67,6 +76,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, err)
 		}
+		fmt.Println(res)
 		return c.JSON(http.StatusOK, res)
 	}
 
@@ -92,6 +102,9 @@ func (s *Server) createTaskHandler(c echo.Context) error {
 	if err != nil || userID.Value == "" {
 		return c.NoContent(http.StatusForbidden)
 	}
+	// body, _ := io.ReadAll(c.Request().Body)
+	// defer c.Request().Body.Close()
+	// fmt.Println(string(body))
 
 	task := new(Task)
 	if err := c.Bind(task); err != nil {
@@ -150,5 +163,43 @@ func (s *Server) deleteTaskHandler(c echo.Context) error {
 	}
 
 	return c.String(http.StatusOK, "Task deleted successfully")
+
+}
+
+type TaskUpdate struct {
+	Id     int  `json:"id" validate:"required"`
+	Status bool `json:"status" validate:"required"`
+}
+
+func (s *Server) updateTaskHandler(c echo.Context) error {
+	userID, err := c.Cookie("access_code")
+	if err != nil || userID.Value == "" {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+
+	req := new(TaskUpdate)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": "Invalid request body",
+		})
+	}
+	if req.Id <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": "Invalid task ID",
+		})
+	}
+	fmt.Println(req.Id, req.Status)
+	user, _ := s.db.GetUser(c.Request().Context(), userID.Value)
+	err = s.db.UpdateTask(c.Request().Context(), database.UpdateTaskParams{ID: int64(req.Id), UserID: user, Status: req.Status})
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"message": "Failed to update the task" + err.Error(),
+			"status":  "error",
+		})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Task updated successfully",
+	})
 
 }
