@@ -3,13 +3,18 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/vivek700/todo-server/internal/database"
+
+	_ "github.com/joho/godotenv/autoload"
 )
+
+var frontendUrl string = fmt.Sprintf("%s", os.Getenv("FRONTEND_URL"))
 
 type Task struct {
 	Description string `json:"description"`
@@ -23,9 +28,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
+	fmt.Println(frontendUrl)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{frontendUrl},
 		AllowCredentials: true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Accept", "Content-Type", "X-CSRF-Token"},
@@ -68,7 +73,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.Secure = false  //set to true if using https
 		cookie.SameSite = http.SameSiteLaxMode
 		cookie.Path = "/"
-		cookie.Expires = time.Now().Add(30 * 24 * time.Hour)
+		cookie.Expires = time.Now().AddDate(1, 0, 0)
 
 		c.SetCookie(cookie)
 
