@@ -28,14 +28,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	fmt.Println(frontendUrl)
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{frontendUrl},
 		AllowCredentials: true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Accept", "Content-Type", "X-CSRF-Token"},
-		// MaxAge:           300,
-		MaxAge: 0,
+		MaxAge:           300,
 	}))
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
@@ -70,7 +68,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.Name = "access_code"
 		cookie.Value = newUUID
 		cookie.HttpOnly = true // Secure: not accessible via JavaScript
-		cookie.Secure = false  //set to true if using https
+		cookie.Secure = true   //set to true if using https
 		cookie.SameSite = http.SameSiteLaxMode
 		cookie.Path = "/"
 		cookie.Expires = time.Now().AddDate(1, 0, 0)
@@ -107,9 +105,6 @@ func (s *Server) createTaskHandler(c echo.Context) error {
 	if err != nil || userID.Value == "" {
 		return c.NoContent(http.StatusForbidden)
 	}
-	// body, _ := io.ReadAll(c.Request().Body)
-	// defer c.Request().Body.Close()
-	// fmt.Println(string(body))
 
 	task := new(Task)
 	if err := c.Bind(task); err != nil {
