@@ -69,7 +69,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.Value = newUUID
 		cookie.HttpOnly = true // Secure: not accessible via JavaScript
 		cookie.Secure = true   //set to true if using https
-		cookie.SameSite = http.SameSiteLaxMode
+		cookie.SameSite = http.SameSiteNoneMode
 		cookie.Path = "/"
 		cookie.Expires = time.Now().AddDate(1, 0, 0)
 
