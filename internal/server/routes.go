@@ -15,6 +15,7 @@ import (
 )
 
 var frontendUrl string = fmt.Sprintf("%s", os.Getenv("FRONTEND_URL"))
+var domain string = os.Getenv("DOMAIN")
 
 type Task struct {
 	Description string `json:"description"`
@@ -60,6 +61,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 func (s *Server) listTasksHandler(c echo.Context) error {
 
+	fmt.Println(domain)
 	userID, err := c.Cookie("access_code")
 	if err != nil || userID.Value == "" {
 		newUUID := uuid.New().String()
@@ -72,7 +74,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.SameSite = http.SameSiteNoneMode
 		cookie.Path = "/"
 		cookie.Expires = time.Now().AddDate(1, 0, 0)
-		cookie.Domain = os.Getenv("DOMAIN")
+		cookie.Domain = domain
 		c.SetCookie(cookie)
 
 		res, err := s.db.CreateUser(c.Request().Context(), newUUID)
