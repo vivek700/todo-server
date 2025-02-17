@@ -51,11 +51,33 @@ func (s *Server) RegisterRoutes() http.Handler {
 	e.GET("/tasks", s.listTasksHandler)
 
 	e.POST("/tasks", s.createTaskHandler)
+	e.POST("/set-cookie/:value", s.setCookieHandler)
 
 	e.DELETE("/tasks", s.deleteTaskHandler)
 
 	e.PUT("/tasks", s.updateTaskHandler)
 	return e
+}
+
+func (s *Server) setCookieHandler(c echo.Context) error {
+	access_code := c.Param("value")
+
+	if access_code == "" {
+		return c.String(http.StatusBadRequest, "Parameter is required")
+	}
+	cookie := new(http.Cookie)
+	cookie.Name = "access_code"
+	cookie.Value = access_code
+	cookie.HttpOnly = true
+	cookie.Secure = true
+	cookie.Path = "/"
+	cookie.SameSite = http.SameSiteNoneMode
+	cookie.Expires = time.Now().AddDate(1, 0, 0)
+	c.SetCookie(cookie)
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"status": "success",
+	})
 }
 
 func (s *Server) listTasksHandler(c echo.Context) error {
@@ -72,7 +94,6 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.SameSite = http.SameSiteNoneMode
 		cookie.Path = "/"
 		cookie.Expires = time.Now().AddDate(1, 0, 0)
-		cookie.Domain = "tick-box.vivek.sbs"
 		c.SetCookie(cookie)
 
 		res, err := s.db.CreateUser(c.Request().Context(), newUUID)
@@ -92,9 +113,10 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "Tasks retrieved successfully",
-		"status":  "success",
-		"data":    tasks,
+		"message":    "Tasks retrieved successfully",
+		"status":     "success",
+		"data":       tasks,
+		"AccessCode": userID.Value,
 	})
 
 }
