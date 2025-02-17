@@ -72,6 +72,7 @@ func (s *Server) listTasksHandler(c echo.Context) error {
 		cookie.SameSite = http.SameSiteNoneMode
 		cookie.Path = "/"
 		cookie.Expires = time.Now().AddDate(1, 0, 0)
+		cookie.Domain = "tick-box.vivek.sbs"
 		c.SetCookie(cookie)
 
 		res, err := s.db.CreateUser(c.Request().Context(), newUUID)
